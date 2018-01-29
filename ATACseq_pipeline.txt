@@ -1,3 +1,7 @@
+AIM:
+ORIGINAL AUTHORS:
+COMMENTARY:
+
 ### Folder to copy data from on silencer
 /mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz   *star copies both R1 and R2* simulataneously!!! 
 
