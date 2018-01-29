@@ -1,0 +1,93 @@
+### Folder to copy data from on silencer
+/mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz   *star copies both R1 and R2* simulataneously!!! 
+
+### Map the reads to the genome using bowtie2
+nohup bowtie2 -p 15 -t -X2000 --no-mixed --no-discordant -x /mnt/silencer2/share/bowtie2_indexes/mm10 -1 p56.rep1_rep2.R1.fastq.gz -2 p56.rep1_rep2.R2.fastq.gz -S p56.rep1_rep2.sam &
+
+### Filter reads with MAPQ < 30 and improperly mapped pairs
+nohup samtools view -F 1804 -q 30 -bS p56.rep1_rep2.sam > p56.rep1_rep2.umap.bam &
+
+### Split reads to individual cells based on the barcode combination
+nohup samtools sort -n -@ 5 -m 1G -o p56.rep1_rep2.umap.corrected.nsorted.bam p56.rep1_rep2.umap.bam &
+
+############################
+samtools cat before and AFTER cleaning up PCR dup's 
+
+mkdir cells
+
+### scATAC_decell tool is in the folder: rraviram/scATAC-Seq/scATAC/bin/scATAC_decell###
+nohup samtools view -h p56.rep1_rep2.umap.corrected.nsorted.bam|/mnt/silencer2/home/rraviram/scATAC-Seq/scATAC/bin/scATAC_decell 1000 cells - & ###copy scATAC_decell from rraviram's folder 
+
+ls -l cells/*sam|head  ###I do not see any .BAM files in cells folder!###
+
+### Number of files = number of cells
+ls -l *cells/*sam|wc-l
+
+### remove PCR duplication for each cell
+vi remove_pcr_dup.sh
+
+##### Then copy and paste the script below into remove_pcr_dup.sh ##### 
+contents:
+
+iterator=0
+for line in `ls cells | grep .sam`
+do
+    barcode="${line%.*}"
+    samtools view -bS cells/$barcode.sam |  samtools sort -@ 10 -T cells/$barcode -o cells/$barcode.sorted.bam -
+    samtools rmdup cells/$barcode.sorted.bam cells/$barcode.sorted.rmdup.bam &
+    iterator=$((iterator + 1))
+    if (( $iterator % 10 == 0 ))
+    then
+        while kill -0 $! 2>/dev/null
+        do
+            sleep 5
+        done
+    fi
+done
+##########
+OPTIONAL:
+rm -r cells/*_tmp 
+rm cells/*.sam ls
+##########
+
+nohup bash remove_pcr_dup.sh &
+
+###Merge reads from different cells to a single file. ###(Pool them and treat like bulk ATACseq for next step) 
+
+nohup samtools cat -o p56.rep1_rep2.umap.corrected.nsorted.bam cells/*.sorted.bam &
+nohup samtools cat -o p56.rep1_rep2.umap.corrected.nsorted.nodup.bam cells/*.sorted.rmdup.bam &
+
+#######################################################
+Bowtie2 is a rate limiting step, 5:55 hours!! 
+#######################################################
+what each flag in the bowtie2 tool mean:
+-p: number of threads, aka how many parallel segments to break down a read into
+-t: prints timestamp to nohup.out/error files 
+-X2000: length of reads from each other.... if more than 2000 bp's, then not considered a Read
+--no-mixed
+--no-discordant
+-x: <bowtie_2_index> (basic name of the index genome you're aligning to, without the .1.bt2 suffixes)
+-1: read 2
+-2: read 2
+-S: output file, in .sam format
+#####################################################
+Note: always sort before using uniq function (to list unique elements)
+view and then count only the unique identifiers in sorted list of .sam files. 
+samtools view p56.rep1_rep2.umap.corrected.nsorted.bam | awk -F : '{print $1}' - | sort | uniq | wc -l
+### are we paired end? ###samtools rmdup [-sS] <input.srt.bam> <out.bam>
+####################################################
+
+6) generate barcode frequency
+nohup samtools view  p56.rep1_rep2.umap.corrected.nsorted.nodup.bam | awk '{split($1,a,":"); print a[1]}' | sort | uniq -c | awk '{print $2, $1}' | sort -k2rn - > p56.rep1_rep2.umap.corrected.nsorted.nodup.stat & 
+ls -l
+7) filter cells with low reads less than 1000 reads ### cp scATAC_rm_cell_with_low_cov tool fromn rrraviram folder
+nohup samtools view -h  p56.rep1_rep2.umap.corrected.nsorted.nodup.bam |/mnt/silencer2/home/rraviram/scATAC-Seq/scATAC/bin/scATAC_rm_cell_with_low_cov 1000 p56.rep1_rep2.umap.corrected.nsorted.nodup.stat - | samtools view -bS - > p56.rep1_rep2.umap.corrected.nsorted.nodup.filtered.bam &
+
+###or make a softlink to rraviram's bin folder###
+
+8) sort by genomic coordinates
+nohup samtools sort -o p56.rep1_rep2.umap.corrected.nsorted.nodup.filtered.gsorted.bam -@ 5 -m 1G p56.rep1_rep2.umap.corrected.nsorted.nodup.filtered.bam &
+ 
+### install macs2
+9) peak calling
+nohup macs2 callpeak -t p56.rep1_rep2.umap.corrected.nsorted.nodup.filtered.gsorted.bam -n p56.rep1_rep2 --outdir p56.rep1_rep2_macs2 -f BAM -g hs --nomodel --shift 37 --extsize 73 --keep-dup all -B --SPMR --call-summits -q 1e-2 &
