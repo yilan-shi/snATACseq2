@@ -3,11 +3,8 @@ ORIGINAL AUTHORS:
 COMMENTARY:
 
 ### Folder to copy data from on silencer
-```
-
 /mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz  
 
-```
 ### Map the reads to the genome using bowtie2
 ```
 nohup bowtie2 -p 15 -t -X2000 --no-mixed --no-discordant -x /mnt/silencer2/share/bowtie2_indexes/mm10 -1 p56.rep1_rep2.R1.fastq.gz -2 p56.rep1_rep2.R2.fastq.gz -S p56.rep1_rep2.sam &
