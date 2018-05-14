@@ -3,11 +3,13 @@ ORIGINAL AUTHORS:
 COMMENTARY:
 
 ### Folder to copy data from on silencer
-/mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz   *star copies both R1 and R2* simulataneously!!! 
-
+```
+/mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz   
+```
 ### Map the reads to the genome using bowtie2
+```
 nohup bowtie2 -p 15 -t -X2000 --no-mixed --no-discordant -x /mnt/silencer2/share/bowtie2_indexes/mm10 -1 p56.rep1_rep2.R1.fastq.gz -2 p56.rep1_rep2.R2.fastq.gz -S p56.rep1_rep2.sam &
-
+```
 ### Filter reads with MAPQ < 30 and improperly mapped pairs
 nohup samtools view -F 1804 -q 30 -bS p56.rep1_rep2.sam > p56.rep1_rep2.umap.bam &
 
