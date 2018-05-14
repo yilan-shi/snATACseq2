@@ -4,7 +4,9 @@ COMMENTARY:
 
 ### Folder to copy data from on silencer
 ```
-/mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz   
+
+/mnt/silencer2/home/rraviram/p56.rep1_rep2*fastq.gz  
+
 ```
 ### Map the reads to the genome using bowtie2
 ```
